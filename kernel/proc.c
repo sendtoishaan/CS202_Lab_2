@@ -124,6 +124,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->tickets = 10000;
+  p->ticks = 0;
   p->syscall_count = 0;
 
   // Allocate a trapframe page.
@@ -450,6 +452,7 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+        p->ticks++;
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -719,4 +722,18 @@ count_active_procs(void)
   }
 
   return count;
+}
+
+// Print PID, name, tickets and ticks of every process.
+void
+sched_statistics(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      printk("%d(%s): tickets: %d, ticks: %d\n", p->pid, p->name, p->tickets, p->ticks);
+    release(&p->lock);
+  }
 }
