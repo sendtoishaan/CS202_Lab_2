@@ -162,3 +162,24 @@ sys_procinfo(void)
   }
   return 0;
 } 
+
+uint64
+sys_sched_statistics(void)
+{
+  sched_statistics();
+  return 0;
+}
+
+uint64
+sys_sched_tickets(void)
+{
+  int n;
+
+  argint(0, &n);
+  if(n > 10000)
+    n = 10000;
+  if(n < 1)
+    n = 1;
+  myproc()->tickets = n;
+  return 0;
+}
