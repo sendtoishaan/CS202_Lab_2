@@ -421,6 +421,20 @@ kwait(uint64 addr)
   }
 }
 
+#if defined(LOTTERY)
+unsigned short lfsr = 0xACE1u;
+
+unsigned short
+rand(void)
+{
+  unsigned short bit;
+
+  bit = ((lfsr >> 0) ^ (lfsr >> 2) ^
+         (lfsr >> 3) ^ (lfsr >> 5)) & 1;
+  lfsr = (lfsr >> 1) | (bit << 15);
+  return lfsr;
+}
+#endif
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -445,6 +459,46 @@ scheduler(void)
     intr_off();
 
     int found = 0;
+
+#if defined(LOTTERY)
+    // Lottery scheduler: count the tickets of all runnable processes,
+    // draw a winning ticket, then run the process holding it.
+    int total_tickets = 0;
+
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE)
+        total_tickets += p->tickets;
+      release(&p->lock);
+    }
+
+    if (total_tickets > 0) {
+      int winner = rand() % total_tickets;
+      int counter = 0;
+
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          counter += p->tickets;
+          if (counter > winner) {
+            p->state = RUNNING;
+            p->ticks++;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+
+            // Don't re-enable interrupts on release.
+            mycpu()->intena = 0;
+
+            c->proc = 0;
+            found = 1;
+            release(&p->lock);
+            break;
+          }
+        }
+        release(&p->lock);
+      }
+    }
+#else
     for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
@@ -466,6 +520,7 @@ scheduler(void)
       }
       release(&p->lock);
     }
+#endif
     if (found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
