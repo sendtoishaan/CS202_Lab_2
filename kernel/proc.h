@@ -104,6 +104,9 @@ struct proc {
   char name[16];               // Process name (debugging)
   int tickets;
   int ticks;
+#if defined(STRIDE)
+  uint64 pass; // pass for stride scheduling
+#endif
 };
 
 struct pinfo {

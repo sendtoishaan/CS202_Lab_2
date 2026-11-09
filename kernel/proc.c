@@ -26,6 +26,11 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+#if defined(STRIDE)
+// for K, 10000 is mentioned in the assignment for stride1 (from paper)
+  const int stride1 = 10000; // initialized here since allocproc and scheduler use it
+#endif
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -127,6 +132,9 @@ found:
   p->tickets = 10000;
   p->ticks = 0;
   p->syscall_count = 0;
+#if defined(STRIDE)
+  p->pass = stride1 / p->tickets;  // from stride scheduling paper: "c->stride = stride1 / tickets"; "c->pass = c->stride"
+#endif
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -497,6 +505,35 @@ scheduler(void)
         }
         release(&p->lock);
       }
+    }
+#elif defined(STRIDE)
+// stride scheduler: find the process with the lowest pass value and run it, then increase its pass value by its stride
+    struct proc *selected = 0;
+
+    for (p = proc; p < &proc[NPROC]; p++) {  // similar to lottery scheduling, but instead, find the lowest pass value
+      acquire(&p->lock);
+      if (p->state == RUNNABLE && (selected == 0 || p->pass < selected->pass))
+        selected = p;
+      release(&p->lock);
+    }
+
+    if (selected != 0) {        // if at least one process is runnable
+      p = selected;
+      acquire(&p->lock);
+      if (p->state == RUNNABLE) {
+        p->pass += stride1 / p->tickets;   
+        p->state = RUNNING; 
+        p->ticks++;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
+        // Don't re-enable interrupts on release.
+        mycpu()->intena = 0;
+
+        c->proc = 0;
+        found = 1;
+      }
+      release(&p->lock);
     }
 #else
     for (p = proc; p < &proc[NPROC]; p++) {
