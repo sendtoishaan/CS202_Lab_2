@@ -481,7 +481,9 @@ scheduler(void)
     }
 
     if (total_tickets > 0) {
-      int winner = rand() % total_tickets;
+      // rand() returns at most 65535, so scale it to [0, total_tickets)
+      // instead of using %, which would never pick tickets above 65535.
+      int winner = ((uint64)rand() * total_tickets) >> 16;
       int counter = 0;
 
       for (p = proc; p < &proc[NPROC]; p++) {
@@ -521,8 +523,8 @@ scheduler(void)
       p = selected;
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
-        p->pass += stride1 / p->tickets;   
-        p->state = RUNNING; 
+        p->pass += stride1 / p->tickets;
+        p->state = RUNNING;
         p->ticks++;
         c->proc = p;
         swtch(&c->context, &p->context);

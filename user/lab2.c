@@ -38,4 +38,4 @@ int main(int argc, char *argv[])
   sched_statistics();
   for (int i = 0; i < n_proc; i++) kill(proc_pid[i]);
   exit(0);
-}    
+}

@@ -161,7 +161,7 @@ sys_procinfo(void)
     return -1;
   }
   return 0;
-} 
+}
 
 uint64
 sys_sched_statistics(void)
