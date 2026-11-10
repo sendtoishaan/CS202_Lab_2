@@ -469,8 +469,7 @@ scheduler(void)
     int found = 0;
 
 #if defined(LOTTERY)
-    // Lottery scheduler: count the tickets of all runnable processes,
-    // draw a winning ticket, then run the process holding it.
+    // lottery: add up tickets, pick a random winner, run it
     int total_tickets = 0;
 
     for (p = proc; p < &proc[NPROC]; p++) {
@@ -481,8 +480,7 @@ scheduler(void)
     }
 
     if (total_tickets > 0) {
-      // rand() returns at most 65535, so scale it to [0, total_tickets)
-      // instead of using %, which would never pick tickets above 65535.
+      // rand() is only 16 bits, scale it instead of using %
       int winner = ((uint64)rand() * total_tickets) >> 16;
       int counter = 0;
 
